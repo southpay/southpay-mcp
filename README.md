@@ -91,10 +91,13 @@ are authorization-gated) is in [`TOOLS.md`](TOOLS.md).
 
 ## Develop and deploy
 
-Pushing to `main` auto-deploys the Worker via `.github/workflows/deploy.yml`
-(it typechecks, then runs `wrangler deploy`). This requires a `CLOUDFLARE_API_TOKEN`
-repo secret (and `CLOUDFLARE_ACCOUNT_ID` if the token spans more than one account).
-So shipping a tool change is just merging to `main`; no manual deploy step.
+Pushing to `main` auto-deploys the Worker via Cloudflare Workers Builds. The
+GitHub repo is connected in the Cloudflare dashboard (Workers & Pages →
+southpay-mcp → Settings → Builds) with the production branch set to `main` and
+the root directory to `cloudflare-worker`; Cloudflare runs `wrangler deploy` on
+each push. Shipping a tool change is just merging to `main`, with no manual
+deploy step and no API token or GitHub secret to manage. (`.github/workflows/ci.yml`
+still typechecks every push and PR.)
 
 To work on it locally or deploy by hand:
 
