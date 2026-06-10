@@ -10,6 +10,31 @@ Built on `McpAgent` from the Cloudflare Agents SDK and served over the Streamabl
 
 Money movement (`set_token`, `refund_payment`, `create_payout`) is fail-closed and authorization-gated server-side. Denials come back as data under an `error` key, not as exceptions.
 
+## Project layout
+
+```
+src/
+  index.ts          Worker entry: routing, /mcp handoff, Bearer key extraction
+  mcp.ts            SouthpayMCP Durable Object (McpAgent); wires up the tool modules
+  instructions.ts   server instructions string sent to the model
+  southpay.ts       HTTP client for the Southpay agentic API
+  summarize.ts      payment-intent response shaping
+  research.ts       external token market data (CoinGecko)
+  messages.ts       human-readable, merchant-friendly result/error text
+  tools/
+    runtime.ts      ToolHost interface + the ok()/NOT_CONNECTED response helpers
+    account.ts      get_account
+    session.ts      login, logout
+    payments.ts     create/get/list/wait_for/cancel/refund payment, list_refunds
+    tokens.ts       list_tokens, get_balance, set_token
+    payouts.ts      create/get/list payout, get_payout_limits
+    research.ts     research_token
+```
+
+Each `tools/*.ts` exports a `register*Tools(host)` function; `mcp.ts` implements
+`ToolHost` (key resolution, base URL, session state) and calls them in `init()`.
+Adding a tool means editing one focused module, not the orchestrator.
+
 ## Auth
 
 Send the agent key as a Bearer token on every request:
