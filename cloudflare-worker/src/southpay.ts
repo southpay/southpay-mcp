@@ -75,7 +75,7 @@ export class SouthpayClient {
     }
     const resp = await fetch(`${this.baseUrl}${PAYMENTS_PATH}`, {
       method: "POST",
-      headers: this.headers(`demo-${crypto.randomUUID()}`),
+      headers: this.headers(`mcp-${crypto.randomUUID()}`),
       body: JSON.stringify({ payment_intent: paymentIntent }),
     });
     return summarize(await this.parse(resp, 201));
@@ -127,7 +127,7 @@ export class SouthpayClient {
     }
     const resp = await fetch(`${this.baseUrl}${PAYMENTS_PATH}/${paymentId}/refunds`, {
       method: "POST",
-      headers: this.headers(`demo-refund-${crypto.randomUUID()}`),
+      headers: this.headers(`mcp-refund-${crypto.randomUUID()}`),
       body: JSON.stringify({ refund }),
     });
     return this.parse(resp, 201);
@@ -165,7 +165,7 @@ export class SouthpayClient {
   ): Promise<Json> {
     const resp = await fetch(`${this.baseUrl}${PAYOUTS_PATH}`, {
       method: "POST",
-      headers: this.headers(`demo-${crypto.randomUUID()}`),
+      headers: this.headers(`mcp-${crypto.randomUUID()}`),
       body: JSON.stringify({
         asset_id: assetId,
         amount_atomic: Math.trunc(amountAtomic),

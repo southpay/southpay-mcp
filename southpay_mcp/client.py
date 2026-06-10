@@ -64,7 +64,7 @@ class SouthpayClient:
         resp = requests.post(
             f"{self.base_url}{PAYMENTS_PATH}",
             json={"payment_intent": payment_intent},
-            headers=self._headers(idempotency_key or f"demo-{uuid.uuid4()}"),
+            headers=self._headers(idempotency_key or f"mcp-{uuid.uuid4()}"),
             timeout=self.timeout,
         )
         return _summarize(_parse(resp, expected=201))
@@ -126,7 +126,7 @@ class SouthpayClient:
         resp = requests.post(
             f"{self.base_url}{PAYMENTS_PATH}/{payment_id}/refunds",
             json={"refund": refund},
-            headers=self._headers(idempotency_key or f"demo-refund-{uuid.uuid4()}"),
+            headers=self._headers(idempotency_key or f"mcp-refund-{uuid.uuid4()}"),
             timeout=self.timeout,
         )
         return _parse(resp, expected=201)
@@ -170,7 +170,7 @@ class SouthpayClient:
                 "amount_atomic": int(amount_atomic),
                 "destination_address": destination_address,
             },
-            headers=self._headers(idempotency_key or f"demo-{uuid.uuid4()}"),
+            headers=self._headers(idempotency_key or f"mcp-{uuid.uuid4()}"),
             timeout=self.timeout,
         )
         return _parse(resp, expected=201)
