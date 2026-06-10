@@ -242,7 +242,9 @@ export class SouthpayClient {
     if (settlement) {
       const cents = settlement.amount_cents;
       result.settlement_balance =
-        typeof cents === "number" ? { ...settlement, amount: atomicToHuman(String(cents), 2) } : settlement;
+        typeof cents === "number"
+          ? { ...settlement, amount: atomicToHuman(String(cents), 2) }
+          : settlement;
     }
     return result;
   }

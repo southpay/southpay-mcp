@@ -15,7 +15,9 @@ export function registerPaymentTools(host: ToolHost) {
         "the exact crypto amount to send. Use when the user wants to charge or collect " +
         "money for an order.",
       inputSchema: {
-        amount: z.string().describe('Fiat amount as a decimal string, up to 2 places, e.g. "25.00".'),
+        amount: z
+          .string()
+          .describe('Fiat amount as a decimal string, up to 2 places, e.g. "25.00".'),
         currency: z.string().default("USD").describe("ISO fiat currency code. Defaults to USD."),
         order_id: z
           .string()
@@ -27,7 +29,10 @@ export function registerPaymentTools(host: ToolHost) {
       const client = host.client();
       if (!client) return ok(NOT_CONNECTED);
 
-      return ok(await asData(() => client.createPayment(amount, currency, order_id)), paymentMessage);
+      return ok(
+        await asData(() => client.createPayment(amount, currency, order_id)),
+        paymentMessage,
+      );
     },
   );
 
@@ -159,7 +164,10 @@ export function registerPaymentTools(host: ToolHost) {
       const client = host.client();
       if (!client) return ok(NOT_CONNECTED);
 
-      return ok(await asData(() => client.refundPayment(payment_id, amount, asset_id)), refundMessage);
+      return ok(
+        await asData(() => client.refundPayment(payment_id, amount, asset_id)),
+        refundMessage,
+      );
     },
   );
 

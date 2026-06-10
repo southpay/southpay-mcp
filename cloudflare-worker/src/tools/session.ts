@@ -36,7 +36,10 @@ export function registerSessionTools(host: ToolHost) {
         if (err instanceof SouthpayError) {
           return ok({ error: "login_failed", status: err.status, detail: err.body });
         }
-        return ok({ error: "login_failed", detail: err instanceof Error ? err.message : String(err) });
+        return ok({
+          error: "login_failed",
+          detail: err instanceof Error ? err.message : String(err),
+        });
       }
     },
   );

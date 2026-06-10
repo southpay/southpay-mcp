@@ -40,7 +40,10 @@ export async function researchToken(symbolOrId: string, vsCurrency = "usd"): Pro
       headers: { Accept: "application/json" },
     });
   } catch (err) {
-    return { error: "market_data_unreachable", detail: err instanceof Error ? err.message : String(err) };
+    return {
+      error: "market_data_unreachable",
+      detail: err instanceof Error ? err.message : String(err),
+    };
   }
 
   if (resp.status !== 200) {

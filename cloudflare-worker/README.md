@@ -49,9 +49,15 @@ The Worker reads the header and forwards the key to Southpay. Alternatively call
 
 ```bash
 npm install
-npm run typecheck
+npm run dev              # local Worker (wrangler dev)
+npm run typecheck        # tsc --noEmit
+npm run format           # prettier --write .
+npm run check            # typecheck + prettier --check (what CI runs)
 npx wrangler deploy --dry-run
 ```
+
+Code style is enforced by Prettier (`.prettierrc.json`) and `.editorconfig`; CI
+runs `npm run check` on every push and PR. Node 22+ is required (wrangler).
 
 ## Deploy
 

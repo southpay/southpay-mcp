@@ -24,7 +24,10 @@ type Props = {
 };
 
 export class SouthpayMCP extends McpAgent<Env, State, Props> implements ToolHost {
-  server = new McpServer({ name: "southpay-mcp", version: "1.0.0" }, { instructions: INSTRUCTIONS });
+  server = new McpServer(
+    { name: "southpay-mcp", version: "1.0.0" },
+    { instructions: INSTRUCTIONS },
+  );
 
   initialState: State = { apiKey: null };
 

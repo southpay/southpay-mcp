@@ -30,7 +30,9 @@ export function paymentMessage(p: ToolResult): string | undefined {
     const addrs = rows(p.deposit_addresses);
     if (addrs.length) {
       const a = addrs[0];
-      parts.push(`To pay, send ${a.crypto_amount} ${a.coin_symbol} on ${a.chain_symbol} to ${a.address}.`);
+      parts.push(
+        `To pay, send ${a.crypto_amount} ${a.coin_symbol} on ${a.chain_symbol} to ${a.address}.`,
+      );
       if (addrs.length > 1) parts.push(`(${addrs.length - 1} other asset option(s) available.)`);
     }
     if (p.hosted_url) parts.push(`Hosted checkout: ${p.hosted_url}`);
@@ -105,8 +107,10 @@ export function loginMessage(r: ToolResult): string | undefined {
 }
 
 const ERROR_HINTS: Record<string, string> = {
-  not_connected: "Not connected to a store. Send your agent key as a Bearer token or use the login tool.",
-  invalid_key: "That doesn't look like a Southpay agent key (it should start with spa_live_ or spa_test_).",
+  not_connected:
+    "Not connected to a store. Send your agent key as a Bearer token or use the login tool.",
+  invalid_key:
+    "That doesn't look like a Southpay agent key (it should start with spa_live_ or spa_test_).",
   login_failed: "Login failed with that key.",
   mandate_required:
     "Declined: this action needs a HumanOS mandate that isn't configured. This fail-closed denial is expected, not a bug.",

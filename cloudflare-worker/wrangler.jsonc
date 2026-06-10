@@ -7,30 +7,30 @@
   "routes": [
     {
       "pattern": "mcp.southpay.io",
-      "custom_domain": true
-    }
+      "custom_domain": true,
+    },
   ],
   "observability": {
-    "enabled": true
+    "enabled": true,
   },
   "alias": {
-    "ai": "./src/ai-stub.ts"
+    "ai": "./src/ai-stub.ts",
   },
   "durable_objects": {
     "bindings": [
       {
         "name": "SouthpayMCP",
-        "class_name": "SouthpayMCP"
-      }
-    ]
+        "class_name": "SouthpayMCP",
+      },
+    ],
   },
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["SouthpayMCP"]
-    }
+      "new_sqlite_classes": ["SouthpayMCP"],
+    },
   ],
   "vars": {
-    "SOUTHPAY_BASE_URL": "https://api.southpay.io"
-  }
+    "SOUTHPAY_BASE_URL": "https://api.southpay.io",
+  },
 }
