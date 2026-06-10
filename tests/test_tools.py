@@ -7,6 +7,8 @@ from fastmcp import Client
 from southpay_mcp.server import mcp
 
 EXPECTED_TOOLS = {
+    "login",
+    "logout",
     "get_account",
     "create_payment",
     "get_payment",
@@ -37,5 +39,5 @@ def test_all_tools_register():
     assert names == EXPECTED_TOOLS
 
 
-def test_tool_count_is_thirteen():
-    assert len(_list_tool_names()) == 13
+def test_tool_count():
+    assert len(_list_tool_names()) == 15

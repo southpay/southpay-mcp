@@ -1,15 +1,28 @@
 # Tool reference
 
-The `southpay-mcp` server exposes 13 tools to any MCP client. This is the
+The `southpay-mcp` server exposes 15 tools to any MCP client. This is the
 model-facing surface; the same descriptions ship to the model as each tool's
 description (FastMCP sends the docstrings in `southpay_mcp/server.py`).
 
 All Southpay calls authenticate with a scoped agent credential
 (`Authorization: Bearer spa_...`) against `SOUTHPAY_BASE_URL`
-(default `http://127.0.0.1:3000`). Every tool returns plain JSON. Failures,
+(default `https://api.southpay.io`). The credential comes from the
+`SOUTHPAY_AGENT_KEY` env var, or from the `login` tool (paste the key at
+runtime, held for the session only). Every tool returns plain JSON. Failures,
 including the fail-closed authorization denials on money-moving tools, are
 returned as data under an `error` key and are never raised, so the model can
 read the denial and respond.
+
+## Session
+
+### `login(api_key)`
+Connect this session by pasting an agent key (`spa_live_...` / `spa_test_...`).
+Held in memory for the session only, used by every other tool. Returns the
+connected account. A key pasted here passes through the model context, so prefer
+`SOUTHPAY_AGENT_KEY` for a live key.
+
+### `logout()`
+Forget the session's pasted key.
 
 Tools marked **gated** are authorization-gated server-side: they are denied
 unless a HumanOS mandate or, for payouts, a spend limit on the asset permits the

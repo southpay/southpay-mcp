@@ -37,8 +37,10 @@ loads on start):
 
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
-| `SOUTHPAY_AGENT_KEY` | yes | none | Scoped agent credential (`spa_test_...`) |
-| `SOUTHPAY_BASE_URL` | no | `http://127.0.0.1:3000` | Southpay API base URL |
+| `SOUTHPAY_AGENT_KEY` | yes* | none | Scoped agent credential (`spa_test_...` / `spa_live_...`) |
+| `SOUTHPAY_BASE_URL` | no | `https://api.southpay.io` | Southpay API base URL (defaults to production) |
+
+*Or omit it and paste the key at runtime with the `login` tool (see below).
 
 Copy `.env.example` to `.env` and fill in the key. Scopes determine which tools
 are reachable: payments tools need `payments:read payments:write`; the token and
@@ -57,13 +59,22 @@ Claude Desktop or Cursor (JSON config):
     "southpay": {
       "command": "southpay-mcp",
       "env": {
-        "SOUTHPAY_AGENT_KEY": "spa_test_...",
-        "SOUTHPAY_BASE_URL": "http://127.0.0.1:3000"
+        "SOUTHPAY_AGENT_KEY": "spa_live_..."
       }
     }
   }
 }
 ```
+
+`SOUTHPAY_BASE_URL` defaults to production, so the key is all you need.
+
+### Log in at runtime instead
+
+If you would rather not put the key in a config file, connect with no env and
+call the `login` tool, pasting your `spa_` key. It is held for the session only
+and used by every other tool; `logout` forgets it. Note that a key pasted this
+way passes through the model context, so for a live key the env var above is the
+safer choice.
 
 If `southpay-mcp` is not on the client's PATH, use the absolute path to the entry
 point in the venv (for example `/path/to/.venv/bin/southpay-mcp`).
@@ -74,7 +85,7 @@ OpenClaw (mounts the server natively):
 openclaw mcp add southpay \
   --command /path/to/.venv/bin/southpay-mcp \
   --cwd /path/to/southpay-mcp
-openclaw mcp probe southpay   # should report 13 tools
+openclaw mcp probe southpay   # should report 15 tools
 ```
 
 See [`openclaw/`](openclaw/README.md) for an end-to-end OpenClaw example with an
@@ -82,11 +93,13 @@ optional skill that adds routing and response-style guidance.
 
 ## Tools
 
-Thirteen tools. Full reference, including arguments, return shape, scope, and
+Fifteen tools. Full reference, including arguments, return shape, scope, and
 which tools are authorization-gated, is in [`TOOLS.md`](TOOLS.md).
 
 | Tool | Purpose | Gated |
 |---|---|---|
+| `login` | Paste an agent key to connect this session (alternative to the env var) | |
+| `logout` | Forget the session's pasted key | |
 | `get_account` | Whoami: store, mode (live/test), agent scopes, auth provider | |
 | `create_payment` | Charge a fiat amount; returns deposit address(es) and crypto amount | |
 | `get_payment` | Look up a payment by id | |

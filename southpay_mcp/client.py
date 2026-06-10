@@ -7,7 +7,7 @@ from decimal import Decimal
 
 import requests
 
-DEFAULT_BASE_URL = "http://127.0.0.1:3000"
+DEFAULT_BASE_URL = "https://api.southpay.io"
 PAYMENTS_PATH = "/api/v2/agentic/payments"
 PAYOUTS_PATH = "/api/v2/agentic/payouts"
 TOKENS_PATH = "/api/v2/agentic/tokens"

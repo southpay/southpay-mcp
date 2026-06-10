@@ -7,12 +7,11 @@ import pytest
 import requests
 from fastmcp import Client
 
-from southpay_mcp.client import DEFAULT_BASE_URL
 from southpay_mcp.server import mcp
 
 
 def _api_reachable() -> bool:
-    base_url = os.environ.get("SOUTHPAY_BASE_URL", DEFAULT_BASE_URL).rstrip("/")
+    base_url = os.environ.get("SOUTHPAY_BASE_URL", "").rstrip("/")
     try:
         requests.get(f"{base_url}/api/v2/agentic/account", timeout=3)
         return True
@@ -21,8 +20,10 @@ def _api_reachable() -> bool:
 
 
 live = pytest.mark.skipif(
-    not os.environ.get("SOUTHPAY_AGENT_KEY") or not _api_reachable(),
-    reason="needs SOUTHPAY_AGENT_KEY and a reachable Southpay API",
+    not os.environ.get("SOUTHPAY_AGENT_KEY")
+    or not os.environ.get("SOUTHPAY_BASE_URL")
+    or not _api_reachable(),
+    reason="needs SOUTHPAY_AGENT_KEY and an explicit SOUTHPAY_BASE_URL pointing at a reachable API",
 )
 
 

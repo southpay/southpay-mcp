@@ -5,11 +5,14 @@ from typing import Any
 
 from dotenv import load_dotenv
 from fastmcp import FastMCP
+from fastmcp.server.dependencies import get_context
 
-from southpay_mcp.client import SouthpayClient, SouthpayError
+from southpay_mcp.client import DEFAULT_BASE_URL, SouthpayClient, SouthpayError
 from southpay_mcp.research import research_token as _research_token
 
 load_dotenv()
+
+_session_keys: dict[str, str] = {}
 
 mcp = FastMCP(
     name="southpay-mcp",
@@ -36,8 +39,25 @@ mcp = FastMCP(
 )
 
 
+def _base_url() -> str:
+    return os.environ.get("SOUTHPAY_BASE_URL", DEFAULT_BASE_URL).rstrip("/")
+
+
+def _session_id() -> str:
+    try:
+        return get_context().session_id or "default"
+    except RuntimeError:
+        return "default"
+
+
 def _client() -> SouthpayClient:
-    return SouthpayClient.from_env()
+    key = _session_keys.get(_session_id()) or os.environ.get("SOUTHPAY_AGENT_KEY")
+    if not key:
+        raise RuntimeError(
+            "Not connected. Paste your Southpay agent key with the login tool, "
+            "or set SOUTHPAY_AGENT_KEY."
+        )
+    return SouthpayClient(api_key=key, base_url=_base_url())
 
 
 def _as_data(fn, *args, **kwargs) -> dict[str, Any]:
@@ -234,6 +254,40 @@ def research_token(symbol_or_id: str, vs_currency: str = "usd") -> dict:
         vs_currency: Fiat/quote currency for the price. Defaults to usd.
     """
     return _research_token(symbol_or_id, vs_currency=vs_currency)
+
+
+@mcp.tool
+def login(api_key: str) -> dict:
+    """Connect this session to a Southpay store by pasting an agent API key.
+
+    Pass your scoped agent credential (it starts with spa_live_ or spa_test_).
+    The key is held for this session only and is not written to disk, then used
+    for every other tool. Returns the connected store, mode, and scopes. For a
+    live key prefer the SOUTHPAY_AGENT_KEY environment variable instead, since a
+    key pasted here passes through the model context.
+
+    Args:
+        api_key: The Southpay agent credential to use for this session.
+    """
+    key = api_key.strip()
+    if not key.startswith(("spa_live_", "spa_test_")):
+        return {
+            "error": "invalid_key",
+            "detail": "Expected a key starting with spa_live_ or spa_test_.",
+        }
+    try:
+        account = SouthpayClient(api_key=key, base_url=_base_url()).get_account()
+    except SouthpayError as exc:
+        return {"error": "login_failed", "status": exc.status, "detail": exc.body}
+    _session_keys[_session_id()] = key
+    return {"logged_in": True, "account": account}
+
+
+@mcp.tool
+def logout() -> dict:
+    """Forget the agent key pasted for this session."""
+    existed = _session_keys.pop(_session_id(), None) is not None
+    return {"logged_out": existed}
 
 
 def main() -> None:
