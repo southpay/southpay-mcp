@@ -50,12 +50,28 @@ def _session_id() -> str:
         return "default"
 
 
+def _key_from_request() -> str | None:
+    try:
+        from fastmcp.server.dependencies import get_http_headers
+
+        headers = get_http_headers()
+    except Exception:
+        return None
+    auth = headers.get("authorization") or headers.get("Authorization") or ""
+    token = auth.split(" ", 1)[-1].strip()
+    return token if token.startswith(("spa_live_", "spa_test_")) else None
+
+
 def _client() -> SouthpayClient:
-    key = _session_keys.get(_session_id()) or os.environ.get("SOUTHPAY_AGENT_KEY")
+    key = (
+        _key_from_request()
+        or _session_keys.get(_session_id())
+        or os.environ.get("SOUTHPAY_AGENT_KEY")
+    )
     if not key:
         raise RuntimeError(
-            "Not connected. Paste your Southpay agent key with the login tool, "
-            "or set SOUTHPAY_AGENT_KEY."
+            "Not connected. Send your Southpay agent key as a Bearer token, paste it "
+            "with the login tool, or set SOUTHPAY_AGENT_KEY."
         )
     return SouthpayClient(api_key=key, base_url=_base_url())
 
@@ -294,7 +310,7 @@ def main() -> None:
     transport = os.environ.get("MCP_TRANSPORT", "stdio").lower()
     if transport == "http":
         host = os.environ.get("MCP_HOST", "127.0.0.1")
-        port = int(os.environ.get("MCP_PORT", "8765"))
+        port = int(os.environ.get("PORT") or os.environ.get("MCP_PORT", "8765"))
         mcp.run(transport="http", host=host, port=port)
     else:
         mcp.run()

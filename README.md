@@ -133,9 +133,17 @@ southpay-mcp                                   # stdio, how MCP clients launch i
 MCP_TRANSPORT=http MCP_PORT=8765 southpay-mcp  # HTTP, for local debugging
 ```
 
+## Hosting (remote server)
+
+To host one URL that any merchant adds and connects to with their own agent key
+(sent as a Bearer header, or via the `login` tool), run it in HTTP mode in a
+container. There is a `Dockerfile`, and a Cloud Run + Cloudflare runbook in
+[docs/HOSTING.md](docs/HOSTING.md). The server holds no secrets: the per-request
+key is the only credential.
+
 ## Tests
 
-A fast suite builds an in-memory FastMCP client and asserts all 13 tools
+A fast suite builds an in-memory FastMCP client and asserts all 15 tools
 register, with no live API:
 
 ```bash
