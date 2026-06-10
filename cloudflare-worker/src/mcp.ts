@@ -3,6 +3,17 @@ import { McpAgent } from "agents/mcp";
 import { z } from "zod";
 import { asData, DEFAULT_BASE_URL, SouthpayClient, SouthpayError, type ToolResult } from "./southpay";
 import { researchToken } from "./research";
+import {
+  accountMessage,
+  balanceMessage,
+  errorMessage,
+  loginMessage,
+  paymentMessage,
+  payoutLimitsMessage,
+  payoutMessage,
+  refundMessage,
+  waitMessage,
+} from "./messages";
 
 type Env = {
   SOUTHPAY_BASE_URL?: string;
@@ -22,10 +33,13 @@ const INSTRUCTIONS =
   "Call get_account first to learn which store, mode (live/test), and scopes you " +
   "have. Use create_payment to charge for an order (it returns a real on-chain " +
   "deposit address and the exact crypto amount to send), get_payment and " +
-  "list_payments to check status and resolve order references, and cancel_payment " +
+  "list_payments to check status and resolve order references, wait_for_payment to " +
+  "block until a payment is done instead of polling yourself, and cancel_payment " +
   "to void a pending intent. Use list_tokens / set_token to inspect and manage the " +
-  "store's accepted crypto assets, refund_payment / list_refunds for refunds, and " +
-  "create_payout / get_payout / list_payouts to disburse funds. " +
+  "store's accepted crypto assets, get_balance to read available funds per asset, " +
+  "refund_payment / list_refunds for refunds, and " +
+  "create_payout / get_payout / list_payouts to disburse funds, and " +
+  "get_payout_limits to see spend caps and remaining headroom before a payout. " +
   "Money movement is fail-closed: set_token, refund_payment, and create_payout are " +
   "authorization-gated server-side and return an error (mandate_required, " +
   "payout_controls_required, or authorization_denied) unless a HumanOS mandate or " +
@@ -41,10 +55,15 @@ const NOT_CONNECTED: ToolResult = {
   detail: "Send your Southpay agent key as a Bearer token or call login.",
 };
 
-function ok(result: ToolResult) {
+type MessageBuilder = (result: ToolResult) => string | undefined;
+
+function ok(result: ToolResult, buildMessage?: MessageBuilder) {
+  const message = result.error ? errorMessage(result) : buildMessage?.(result);
+  const structuredContent = message ? { message, ...result } : result;
+  const text = message ?? JSON.stringify(structuredContent);
   return {
-    content: [{ type: "text" as const, text: JSON.stringify(result) }],
-    structuredContent: result,
+    content: [{ type: "text" as const, text }],
+    structuredContent,
   };
 }
 
@@ -85,7 +104,7 @@ export class SouthpayMCP extends McpAgent<Env, State, Props> {
       async () => {
         const client = this.client();
         if (!client) return ok(NOT_CONNECTED);
-        return ok(await asData(() => client.getAccount()));
+        return ok(await asData(() => client.getAccount()), accountMessage);
       },
     );
 
@@ -110,7 +129,7 @@ export class SouthpayMCP extends McpAgent<Env, State, Props> {
       async ({ amount, currency, order_id }) => {
         const client = this.client();
         if (!client) return ok(NOT_CONNECTED);
-        return ok(await asData(() => client.createPayment(amount, currency, order_id)));
+        return ok(await asData(() => client.createPayment(amount, currency, order_id)), paymentMessage);
       },
     );
 
@@ -128,7 +147,7 @@ export class SouthpayMCP extends McpAgent<Env, State, Props> {
       async ({ payment_id }) => {
         const client = this.client();
         if (!client) return ok(NOT_CONNECTED);
-        return ok(await asData(() => client.getPayment(payment_id)));
+        return ok(await asData(() => client.getPayment(payment_id)), paymentMessage);
       },
     );
 
@@ -157,6 +176,43 @@ export class SouthpayMCP extends McpAgent<Env, State, Props> {
     );
 
     this.server.registerTool(
+      "wait_for_payment",
+      {
+        description:
+          "Wait for a payment to reach a terminal state (completed, expired, failed, or " +
+          "refunded) instead of polling get_payment yourself in a loop. Pass either the " +
+          'payment intent id or its order reference (e.g. "EDJHONI9KPMZQSO9"). Returns as ' +
+          "soon as the payment is done as {done:true, status, payment}; if it is still " +
+          "pending or processing when the time budget runs out it returns {done:false, " +
+          "timed_out:true, status} so you can call again to keep waiting. This holds the " +
+          "request open for up to timeout_seconds, so keep the budget modest and re-call " +
+          "for long waits. For durable, push-style notification on completion (e.g. across " +
+          "sessions), configure a Southpay webhook instead.",
+        inputSchema: {
+          payment: z.string().describe("The payment intent id or order reference to wait on."),
+          timeout_seconds: z
+            .number()
+            .int()
+            .default(60)
+            .describe("Max seconds to wait this call (1..240). Returns early once terminal."),
+          poll_interval_seconds: z
+            .number()
+            .int()
+            .default(3)
+            .describe("Seconds between status checks (minimum 2)."),
+        },
+      },
+      async ({ payment, timeout_seconds, poll_interval_seconds }) => {
+        const client = this.client();
+        if (!client) return ok(NOT_CONNECTED);
+        return ok(
+          await asData(() => client.waitForPayment(payment, timeout_seconds, poll_interval_seconds)),
+          waitMessage,
+        );
+      },
+    );
+
+    this.server.registerTool(
       "cancel_payment",
       {
         description:
@@ -171,7 +227,7 @@ export class SouthpayMCP extends McpAgent<Env, State, Props> {
       async ({ payment_id }) => {
         const client = this.client();
         if (!client) return ok(NOT_CONNECTED);
-        return ok(await asData(() => client.cancelPayment(payment_id)));
+        return ok(await asData(() => client.cancelPayment(payment_id)), paymentMessage);
       },
     );
 
@@ -200,7 +256,7 @@ export class SouthpayMCP extends McpAgent<Env, State, Props> {
       async ({ payment_id, amount, asset_id }) => {
         const client = this.client();
         if (!client) return ok(NOT_CONNECTED);
-        return ok(await asData(() => client.refundPayment(payment_id, amount, asset_id)));
+        return ok(await asData(() => client.refundPayment(payment_id, amount, asset_id)), refundMessage);
       },
     );
 
@@ -233,6 +289,62 @@ export class SouthpayMCP extends McpAgent<Env, State, Props> {
         const client = this.client();
         if (!client) return ok(NOT_CONNECTED);
         return ok(await asData(() => client.listTokens()));
+      },
+    );
+
+    this.server.registerTool(
+      "get_balance",
+      {
+        description:
+          "Get the store's current crypto balances (available funds held by Southpay, " +
+          "per asset). Returns {balances: [{asset_id, coin_symbol, chain_symbol, " +
+          "atomic_decimals, balance_atomic, balance}], settlement_balance: {currency, " +
+          "amount_cents, amount}}, where balance_atomic is the integer base-unit amount, " +
+          "balance is the same value as a human-readable decimal string, and " +
+          "settlement_balance is the store-wide value of stablecoin holdings in the " +
+          "store's settlement currency. Read-only (assets:read scope). Pass asset_id to " +
+          "get just one asset's balance (settlement_balance stays store-wide). Use this to " +
+          "check funds before a payout, since create_payout fails closed with insufficient " +
+          "balance otherwise.",
+        inputSchema: {
+          asset_id: z
+            .string()
+            .optional()
+            .describe("Optional asset_id (from list_tokens) to return a single balance."),
+        },
+      },
+      async ({ asset_id }) => {
+        const client = this.client();
+        if (!client) return ok(NOT_CONNECTED);
+        return ok(await asData(() => client.getBalances(asset_id)), balanceMessage);
+      },
+    );
+
+    this.server.registerTool(
+      "get_payout_limits",
+      {
+        description:
+          "Get this agent's payout spend limits and today's usage per asset, so you can " +
+          "size a payout before create_payout (which is fail-closed). Returns {limits: " +
+          "[{asset_id, coin_symbol, chain_symbol, atomic_decimals, per_tx_cap_atomic, " +
+          "daily_cap_atomic, daily_spent_atomic, daily_remaining_atomic, " +
+          "controls_configured, ...human fields}], utc_day}. controls_configured=false for " +
+          "an asset means no spend limit is set, so a payout in it is denied as " +
+          "payout_controls_required unless a HumanOS mandate authorizes it (see " +
+          "get_account for whether mandates are in effect). Caps are per-asset base units; " +
+          "human-readable equivalents are included. Read-only (assets:read scope). Pass " +
+          "asset_id to filter to one asset.",
+        inputSchema: {
+          asset_id: z
+            .string()
+            .optional()
+            .describe("Optional asset_id (from list_tokens) to return a single asset's limits."),
+        },
+      },
+      async ({ asset_id }) => {
+        const client = this.client();
+        if (!client) return ok(NOT_CONNECTED);
+        return ok(await asData(() => client.getPayoutLimits(asset_id)), payoutLimitsMessage);
       },
     );
 
@@ -278,7 +390,7 @@ export class SouthpayMCP extends McpAgent<Env, State, Props> {
       async ({ asset_id, amount_atomic, destination_address }) => {
         const client = this.client();
         if (!client) return ok(NOT_CONNECTED);
-        return ok(await asData(() => client.createPayout(asset_id, amount_atomic, destination_address)));
+        return ok(await asData(() => client.createPayout(asset_id, amount_atomic, destination_address)), payoutMessage);
       },
     );
 
@@ -293,7 +405,7 @@ export class SouthpayMCP extends McpAgent<Env, State, Props> {
       async ({ payout_id }) => {
         const client = this.client();
         if (!client) return ok(NOT_CONNECTED);
-        return ok(await asData(() => client.getPayout(payout_id)));
+        return ok(await asData(() => client.getPayout(payout_id)), payoutMessage);
       },
     );
 
@@ -359,7 +471,7 @@ export class SouthpayMCP extends McpAgent<Env, State, Props> {
         try {
           const account = await new SouthpayClient(key, this.baseUrl()).getAccount();
           this.setState({ apiKey: key });
-          return ok({ logged_in: true, account });
+          return ok({ logged_in: true, account }, loginMessage);
         } catch (err) {
           if (err instanceof SouthpayError) {
             return ok({ error: "login_failed", status: err.status, detail: err.body });

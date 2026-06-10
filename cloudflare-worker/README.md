@@ -6,7 +6,7 @@ Built on `McpAgent` from the Cloudflare Agents SDK and served over the Streamabl
 
 ## Tools
 
-`login`, `logout`, `get_account`, `create_payment`, `get_payment`, `list_payments`, `cancel_payment`, `refund_payment`, `list_refunds`, `list_tokens`, `set_token`, `create_payout`, `get_payout`, `list_payouts`, `research_token`.
+`login`, `logout`, `get_account`, `create_payment`, `get_payment`, `list_payments`, `wait_for_payment`, `cancel_payment`, `refund_payment`, `list_refunds`, `list_tokens`, `get_balance`, `set_token`, `create_payout`, `get_payout`, `list_payouts`, `get_payout_limits`, `research_token`.
 
 Money movement (`set_token`, `refund_payment`, `create_payout`) is fail-closed and authorization-gated server-side. Denials come back as data under an `error` key, not as exceptions.
 
