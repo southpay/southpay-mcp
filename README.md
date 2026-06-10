@@ -91,17 +91,29 @@ are authorization-gated) is in [`TOOLS.md`](TOOLS.md).
 
 ## Develop and deploy
 
+Pushing to `main` auto-deploys the Worker via `.github/workflows/deploy.yml`
+(it typechecks, then runs `wrangler deploy`). This requires a `CLOUDFLARE_API_TOKEN`
+repo secret (and `CLOUDFLARE_ACCOUNT_ID` if the token spans more than one account).
+So shipping a tool change is just merging to `main`; no manual deploy step.
+
+To work on it locally or deploy by hand:
+
 ```bash
 cd cloudflare-worker
 npm install
 npm run typecheck
 npx wrangler deploy --dry-run   # validate
-npx wrangler deploy             # ship
+npx wrangler deploy             # ship manually
 ```
 
 The base URL defaults to `https://api.southpay.io` and is overridable via the
 `SOUTHPAY_BASE_URL` var in `cloudflare-worker/wrangler.jsonc`. See
 [`cloudflare-worker/README.md`](cloudflare-worker/README.md) for Worker details.
+
+Note: deploying updates the server, but MCP clients cache the tool list per
+session, so a brand-new chat (or re-adding the connector) is what surfaces new
+tools to an already-connected client. The server advertises `listChanged`, but a
+fresh session is the reliable way to pick up changes.
 
 ## License
 
