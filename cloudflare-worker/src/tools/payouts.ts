@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { payoutLimitsMessage, payoutMessage } from "../messages";
+import { listPayoutsMessage, payoutLimitsMessage, payoutMessage } from "../messages";
 import { asData } from "../southpay";
 import { NOT_CONNECTED, ok, type ToolHost } from "./runtime";
 
@@ -64,7 +64,7 @@ export function registerPayoutTools(host: ToolHost) {
       const client = host.client();
       if (!client) return ok(NOT_CONNECTED);
 
-      return ok(await asData(() => client.listPayouts(page, per_page)));
+      return ok(await asData(() => client.listPayouts(page, per_page)), listPayoutsMessage);
     },
   );
 

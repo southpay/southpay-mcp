@@ -2,59 +2,129 @@ import type { ToolResult } from "./southpay";
 
 type Row = Record<string, unknown>;
 
-function money(amount: unknown, currency: unknown): string {
-  if (amount == null) return "";
-  return currency ? `${amount} ${String(currency)}` : String(amount);
-}
-
 function rows(value: unknown): Row[] {
   return Array.isArray(value) ? (value as Row[]) : [];
+}
+
+function formatFiat(amount: unknown, currency: unknown): string {
+  if (amount == null) return "";
+  const num = Number(amount);
+  const code = typeof currency === "string" ? currency.toUpperCase() : "";
+  if (code && Number.isFinite(num)) {
+    try {
+      return new Intl.NumberFormat("en-US", { style: "currency", currency: code }).format(num);
+    } catch {
+      return `${amount} ${code}`;
+    }
+  }
+  return code ? `${amount} ${code}` : String(amount);
+}
+
+function joinList(items: string[]): string {
+  if (items.length === 0) return "";
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
+function plural(count: number, word: string): string {
+  return `${count} ${word}${count === 1 ? "" : "s"}`;
+}
+
+function relativeTime(iso: unknown): string | undefined {
+  if (typeof iso !== "string") return undefined;
+  const target = Date.parse(iso);
+  if (Number.isNaN(target)) return undefined;
+
+  const diffMs = target - Date.now();
+  const minutes = Math.round(Math.abs(diffMs) / 60_000);
+
+  let phrase: string;
+  if (minutes < 1) {
+    phrase = "less than a minute";
+  } else if (minutes < 60) {
+    phrase = plural(minutes, "minute");
+  } else if (minutes < 60 * 24) {
+    phrase = `about ${plural(Math.round(minutes / 60), "hour")}`;
+  } else {
+    phrase = `about ${plural(Math.round(minutes / (60 * 24)), "day")}`;
+  }
+
+  return diffMs < 0 ? `${phrase} ago` : `in ${phrase}`;
 }
 
 export function accountMessage(a: ToolResult): string | undefined {
   const store = a.store as Row | undefined;
   if (!store) return undefined;
+
   const agent = (a.agent as Row | undefined) ?? {};
-  const scopes = rows(agent.scopes).length ? (agent.scopes as string[]).join(", ") : "none";
-  return `Connected to ${store.name ?? "your store"} in ${a.mode ?? "?"} mode. This agent can: ${scopes}.`;
+  const scopes = Array.isArray(agent.scopes) ? (agent.scopes as string[]) : [];
+  const permissions = scopes.length ? scopes.join(", ") : "no permissions";
+  const mode = a.mode === "live" ? "live" : "test";
+
+  return `You're connected to ${store.name ?? "your store"} in ${mode} mode. This agent's permissions: ${permissions}.`;
 }
 
 export function paymentMessage(p: ToolResult): string | undefined {
   const status = String(p.status ?? "");
   if (!p.id && !status) return undefined;
+
   const ref = p.reference ? ` (ref ${p.reference})` : "";
-  const amount = money(p.settlement_amount, p.settlement_currency);
+  const amountText = formatFiat(p.settlement_amount, p.settlement_currency);
+  const forAmount = amountText ? ` for ${amountText}` : "";
 
   if (status === "pending" || status === "processing") {
-    const parts = [`Payment for ${amount}${ref} is ${status}.`];
-    const addrs = rows(p.deposit_addresses);
-    if (addrs.length) {
-      const a = addrs[0];
-      parts.push(
-        `To pay, send ${a.crypto_amount} ${a.coin_symbol} on ${a.chain_symbol} to ${a.address}.`,
-      );
-      if (addrs.length > 1) parts.push(`(${addrs.length - 1} other asset option(s) available.)`);
+    const lines: string[] = [];
+    lines.push(
+      status === "processing"
+        ? `Payment${forAmount}${ref} has been sent and is confirming on-chain.`
+        : `Payment${forAmount}${ref} is ready and waiting to be paid.`,
+    );
+
+    const addresses = rows(p.deposit_addresses);
+    if (addresses.length) {
+      const a = addresses[0];
+      lines.push("");
+      lines.push(`To pay, send ${a.crypto_amount} ${a.coin_symbol} on ${a.chain_symbol} to:`);
+      lines.push(`  ${a.address}`);
+      if (addresses.length > 1) {
+        lines.push(`(${plural(addresses.length - 1, "other token")} can be used instead.)`);
+      }
     }
-    if (p.hosted_url) parts.push(`Hosted checkout: ${p.hosted_url}`);
-    if (p.expires_at) parts.push(`Expires ${p.expires_at}.`);
-    return parts.join(" ");
+    if (p.hosted_url) lines.push(`Or send the customer to the checkout page: ${p.hosted_url}`);
+
+    const expires = relativeTime(p.expires_at);
+    if (expires) lines.push(`This payment expires ${expires}.`);
+
+    return lines.join("\n");
   }
-  if (status === "completed") return `Payment for ${amount}${ref} is complete. Funds received.`;
-  if (status === "expired") return `Payment${ref} has expired and can no longer be paid.`;
-  if (status === "refunded") return `Payment for ${amount}${ref} has been refunded.`;
-  if (status === "failed") return `Payment${ref} failed.`;
-  return `Payment${ref}: ${status || "unknown status"}.`;
+
+  if (status === "completed") {
+    return `Payment${forAmount}${ref} is complete. The funds have been received.`;
+  }
+  if (status === "expired") {
+    return `Payment${ref} has expired and can no longer be paid. Create a new one if the customer still wants to pay.`;
+  }
+  if (status === "refunded") {
+    return `Payment${forAmount}${ref} has been refunded.`;
+  }
+  if (status === "failed") {
+    return `Payment${ref} did not go through and no funds were collected.`;
+  }
+  return `Payment${ref} is currently ${status || "in an unknown state"}.`;
 }
 
 export function waitMessage(r: ToolResult): string | undefined {
   if (r.done) {
     const inner = paymentMessage((r.payment as ToolResult) ?? {});
-    return inner ?? `Payment is ${r.status}.`;
+    return inner ?? `The payment is now ${r.status}.`;
   }
   if (r.timed_out) {
+    const checks = plural(Number(r.polls ?? 0), "time");
     return (
-      `Still ${r.status} after ${r.polls} check(s). Call wait_for_payment again to keep ` +
-      `waiting, or set up a Southpay webhook to be notified on completion.`
+      `The payment is still ${r.status}. I checked ${checks} but it hasn't completed yet. ` +
+      `Call wait_for_payment again to keep waiting, or set up a Southpay webhook to be ` +
+      `notified the moment it lands.`
     );
   }
   return undefined;
@@ -62,12 +132,14 @@ export function waitMessage(r: ToolResult): string | undefined {
 
 export function balanceMessage(b: ToolResult): string | undefined {
   const balances = rows(b.balances);
-  if (!balances.length) return "No crypto balances yet.";
-  const held = balances.map((r) => `${r.balance} ${r.coin_symbol}`).join(", ");
-  let message = `You hold: ${held}.`;
+  if (!balances.length) return "You don't have any crypto balances yet.";
+
+  const held = joinList(balances.map((r) => `${r.balance} ${r.coin_symbol}`));
+  let message = `You're holding ${held}.`;
+
   const settlement = b.settlement_balance as Row | undefined;
   if (settlement && settlement.amount != null) {
-    message += ` Settlement value: about ${settlement.amount} ${settlement.currency}.`;
+    message += ` That's worth about ${formatFiat(settlement.amount, settlement.currency)}.`;
   }
   return message;
 }
@@ -76,48 +148,107 @@ export function payoutLimitsMessage(l: ToolResult): string | undefined {
   const limits = rows(l.limits);
   if (!limits.length) {
     return (
-      "No payout spend limits are configured. Payouts are declined as " +
-      "payout_controls_required unless a HumanOS mandate authorizes them."
+      "No payout spend limits are set up yet, so payouts are blocked by default " +
+      "(payout_controls_required) until you add a spend limit or a HumanOS mandate authorizes them."
     );
   }
+
   const parts = limits.map((r) => {
     if (r.daily_cap != null) {
-      return `${r.coin_symbol}: ${r.daily_remaining} of ${r.daily_cap} left today`;
+      return `${r.coin_symbol}: ${r.daily_remaining} of ${r.daily_cap} left to spend today`;
     }
     if (r.per_tx_cap != null) return `${r.coin_symbol}: up to ${r.per_tx_cap} per payout`;
-    return `${r.coin_symbol}: no cap set`;
+    return `${r.coin_symbol}: no limit set`;
   });
-  return `Payout headroom: ${parts.join("; ")}.`;
+  return `Here's your remaining payout headroom. ${parts.join("; ")}.`;
 }
 
 export function payoutMessage(p: ToolResult): string | undefined {
   if (!p.id && !p.status) return undefined;
-  return `Payout ${p.id ?? ""} is ${p.status ?? "created"}.`.replace("  ", " ");
+
+  const id = p.id ? ` ${p.id}` : "";
+  const status = p.status ?? "created";
+  return `Your payout${id} is ${status}.`;
 }
 
 export function refundMessage(r: ToolResult): string | undefined {
   if (!r.id && !r.status) return undefined;
-  return `Refund ${r.id ?? ""} is ${r.status ?? "created"}.`.replace("  ", " ");
+
+  const id = r.id ? ` ${r.id}` : "";
+  const status = r.status ?? "created";
+  return `Your refund${id} is ${status}.`;
 }
 
 export function loginMessage(r: ToolResult): string | undefined {
   if (!r.logged_in) return undefined;
+
   const account = accountMessage((r.account as ToolResult) ?? {});
-  return account ? `Logged in. ${account}` : "Logged in.";
+  return account ? `You're logged in. ${account}` : "You're logged in.";
+}
+
+export function listPaymentsMessage(r: ToolResult): string | undefined {
+  const payments = rows(r.payments);
+  if (!payments.length) return "No payments found.";
+
+  const lines = payments.slice(0, 10).map((p) => {
+    const amount = formatFiat(p.settlement_amount, p.settlement_currency) || "?";
+    return `  - ${p.reference ?? p.id}: ${amount}, ${p.status ?? "unknown"}`;
+  });
+  const more = payments.length > 10 ? `\n  (and ${payments.length - 10} more on this page)` : "";
+
+  return `${plural(payments.length, "payment")} on this page:\n${lines.join("\n")}${more}`;
+}
+
+export function listPayoutsMessage(r: ToolResult): string | undefined {
+  const data = rows(r.data);
+  if (!data.length) return "No payouts found.";
+
+  return `${plural(data.length, "payout")} on this page.`;
+}
+
+export function listRefundsMessage(r: ToolResult): string | undefined {
+  const data = rows(r.data);
+  if (!("data" in r)) return undefined;
+  if (!data.length) return "No refunds have been issued on this payment.";
+
+  return `${plural(data.length, "refund")} on this payment.`;
+}
+
+export function listTokensMessage(r: ToolResult): string | undefined {
+  const accepted = rows(r.accepted);
+  const available = rows(r.available);
+  if (!accepted.length && !available.length) return undefined;
+
+  const active = accepted.filter((t) => t.active !== false);
+  const symbols = [...new Set(active.map((t) => String(t.coin_symbol)))];
+
+  let message = symbols.length
+    ? `You currently accept ${joinList(symbols)}.`
+    : "You're not accepting any tokens yet.";
+  if (available.length) {
+    message += ` ${plural(available.length, "more token")} can be enabled.`;
+  }
+  return message;
 }
 
 const ERROR_HINTS: Record<string, string> = {
   not_connected:
-    "Not connected to a store. Send your agent key as a Bearer token or use the login tool.",
+    "You're not connected to a store yet. Add your Southpay agent key (it starts with " +
+    "spa_live_ or spa_test_) as a Bearer token, or use the login tool.",
   invalid_key:
-    "That doesn't look like a Southpay agent key (it should start with spa_live_ or spa_test_).",
-  login_failed: "Login failed with that key.",
+    "That doesn't look like a Southpay agent key. It should start with spa_live_ or spa_test_.",
+  login_failed: "I couldn't log in with that key. Double-check it and try again.",
+  not_found: "I couldn't find that. Double-check the id or reference and try again.",
   mandate_required:
-    "Declined: this action needs a HumanOS mandate that isn't configured. This fail-closed denial is expected, not a bug.",
+    "This was declined because it needs a HumanOS mandate that isn't set up. This is the " +
+    "expected fail-closed behavior, not an error you did wrong.",
   payout_controls_required:
-    "Declined: no spend limit is set for this asset, so the payout was blocked. Configure a spend limit or attach a mandate.",
-  authorization_denied: "Declined by the authorization provider.",
-  insufficient_scope: "This agent key doesn't carry the scope needed for that action.",
+    "This payout was blocked because there's no spend limit on this asset yet. Add a spend " +
+    "limit (or attach a mandate) to allow it.",
+  authorization_denied: "This was declined by the authorization provider.",
+  insufficient_scope:
+    "This agent key doesn't have permission for that action. Grant the matching scope when " +
+    "you create the key.",
 };
 
 export function errorMessage(result: ToolResult): string {
@@ -143,5 +274,5 @@ export function errorMessage(result: ToolResult): string {
     return `Southpay couldn't complete that (API error${status}): ${inner}`;
   }
 
-  return `${code}${detail}`;
+  return `That didn't work (${code})${detail}.`;
 }

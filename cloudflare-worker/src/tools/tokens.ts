@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { balanceMessage } from "../messages";
+import { balanceMessage, listTokensMessage } from "../messages";
 import { asData } from "../southpay";
 import { NOT_CONNECTED, ok, type ToolHost } from "./runtime";
 
@@ -18,7 +18,7 @@ export function registerTokenTools(host: ToolHost) {
       const client = host.client();
       if (!client) return ok(NOT_CONNECTED);
 
-      return ok(await asData(() => client.listTokens()));
+      return ok(await asData(() => client.listTokens()), listTokensMessage);
     },
   );
 

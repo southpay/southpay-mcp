@@ -1,6 +1,12 @@
 import { z } from "zod";
 
-import { paymentMessage, refundMessage, waitMessage } from "../messages";
+import {
+  listPaymentsMessage,
+  listRefundsMessage,
+  paymentMessage,
+  refundMessage,
+  waitMessage,
+} from "../messages";
 import { asData } from "../southpay";
 import { NOT_CONNECTED, ok, type ToolHost } from "./runtime";
 
@@ -76,7 +82,10 @@ export function registerPaymentTools(host: ToolHost) {
       const client = host.client();
       if (!client) return ok(NOT_CONNECTED);
 
-      return ok(await asData(() => client.listPayments(page, per_page, reference)));
+      return ok(
+        await asData(() => client.listPayments(page, per_page, reference)),
+        listPaymentsMessage,
+      );
     },
   );
 
@@ -183,7 +192,7 @@ export function registerPaymentTools(host: ToolHost) {
       const client = host.client();
       if (!client) return ok(NOT_CONNECTED);
 
-      return ok(await asData(() => client.listRefunds(payment_id)));
+      return ok(await asData(() => client.listRefunds(payment_id)), listRefundsMessage);
     },
   );
 }
