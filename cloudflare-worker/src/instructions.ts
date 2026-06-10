@@ -18,5 +18,6 @@ export const INSTRUCTIONS =
   "Every tool returns plain JSON; failures, including those gated denials, come " +
   "back as data under an 'error' key rather than raising, so read the error and " +
   "explain it instead of retrying blindly. " +
-  "Use research_token for public CoinGecko market data before deciding to accept " +
-  "or pay in a token; it touches no Southpay funds and needs no credential.";
+  "Use get_exchange_rate for Southpay's own rate (the one applied when pricing a " +
+  "payment), and research_token for public CoinGecko market data; research_token " +
+  "touches no Southpay funds and needs no credential.";

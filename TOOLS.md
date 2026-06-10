@@ -1,6 +1,6 @@
 # Tool reference
 
-The `southpay-mcp` server exposes 18 tools to any MCP client. This is the
+The `southpay-mcp` server exposes 19 tools to any MCP client. This is the
 model-facing surface; the same descriptions ship to the model as each tool's
 description (registered in `cloudflare-worker/src/mcp.ts`).
 
@@ -127,12 +127,22 @@ for an asset means no spend limit is set, so a payout in it is denied as
 `payout_controls_required` unless a HumanOS mandate authorizes it (see
 `get_account` for whether mandates are in effect). Pass `asset_id` to filter.
 
-## Market data
+## Rates and market data
+
+### `get_exchange_rate(asset_id=None, currency=None)`
+Southpay's own current rate for a crypto asset in a fiat currency: the rate
+Southpay actually applies when pricing a payment. Scope: `assets:read`. Returns
+`{currency, rates: [{asset_id, coin_symbol, chain_symbol, currency, rate,
+source}]}`, where `rate` is the fiat price of one coin. Pass `asset_id` for one
+asset; omit it for every accepted asset. `currency` defaults to the store's
+settlement currency. Prefer this over `research_token` when you need the rate the
+customer will be charged.
 
 ### `research_token(symbol_or_id, vs_currency="usd")`
 Public token market data from CoinGecko. No Southpay credential, no funds.
 Returns spot price, 24h change, market cap, and 24h volume. Accepts a ticker
-(`"ETH"`) or a CoinGecko id (`"ethereum"`).
+(`"ETH"`) or a CoinGecko id (`"ethereum"`). For the rate Southpay will charge,
+use `get_exchange_rate` instead.
 
 ## Notes
 

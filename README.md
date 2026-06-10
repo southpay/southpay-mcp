@@ -50,7 +50,7 @@ limit is configured. That denial is expected.
 
 ## Tools
 
-Eighteen tools. Full reference (arguments, return shape, scope, and which tools
+Nineteen tools. Full reference (arguments, return shape, scope, and which tools
 are authorization-gated) is in [`TOOLS.md`](TOOLS.md).
 
 | Tool | Purpose | Gated |
@@ -72,6 +72,7 @@ are authorization-gated) is in [`TOOLS.md`](TOOLS.md).
 | `get_payout` | Look up a payout by id | |
 | `list_payouts` | List payouts | |
 | `get_payout_limits` | Per-asset payout spend caps and today's remaining headroom | |
+| `get_exchange_rate` | Southpay's own rate for an asset in a fiat currency | |
 | `research_token` | Public CoinGecko market data (no credential) | |
 
 ## Security model

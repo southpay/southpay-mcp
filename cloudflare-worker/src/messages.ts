@@ -228,6 +228,19 @@ export function listRefundsMessage(r: ToolResult): string | undefined {
   return `↩️ ${plural(data.length, "refund")} on this payment.`;
 }
 
+export function exchangeRateMessage(r: ToolResult): string | undefined {
+  const rates = rows(r.rates);
+  if (!rates.length) return "💱 No exchange rate is available for that asset right now.";
+
+  if (rates.length === 1) {
+    const x = rates[0];
+    return `💱 1 ${x.coin_symbol} = ${formatFiat(x.rate, x.currency)} (Southpay rate via ${x.source}).`;
+  }
+
+  const lines = rates.map((x) => `💱 1 ${x.coin_symbol} = ${formatFiat(x.rate, x.currency)}`);
+  return `Southpay exchange rates:\n${lines.join("\n")}`;
+}
+
 export function listTokensMessage(r: ToolResult): string | undefined {
   const accepted = rows(r.accepted);
   const available = rows(r.available);

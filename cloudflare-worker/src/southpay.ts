@@ -8,6 +8,7 @@ const TOKENS_PATH = "/api/v2/agentic/tokens";
 const ACCOUNT_PATH = "/api/v2/agentic/account";
 const BALANCES_PATH = "/api/v2/agentic/balances";
 const PAYOUT_LIMITS_PATH = "/api/v2/agentic/payout_limits";
+const EXCHANGE_RATES_PATH = "/api/v2/agentic/exchange_rates";
 
 function atomicToHuman(atomic: string, decimals: number): string {
   const negative = atomic.startsWith("-");
@@ -275,6 +276,21 @@ export class SouthpayClient {
       };
     });
     return { limits, utc_day: body.utc_day };
+  }
+
+  async getExchangeRates(assetId?: string, currency?: string): Promise<Json> {
+    const url = new URL(`${this.baseUrl}${EXCHANGE_RATES_PATH}`);
+    if (assetId) {
+      url.searchParams.set("asset_id", assetId);
+    }
+    if (currency) {
+      url.searchParams.set("currency", currency);
+    }
+    const resp = await fetch(url.toString(), {
+      method: "GET",
+      headers: this.headers(),
+    });
+    return this.parse(resp, 200);
   }
 
   async setToken(assetId: string, active: boolean): Promise<Json> {
