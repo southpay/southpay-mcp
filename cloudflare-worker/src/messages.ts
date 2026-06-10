@@ -2,6 +2,19 @@ import type { ToolResult } from "./southpay";
 
 type Row = Record<string, unknown>;
 
+const STATUS_ICON: Record<string, string> = {
+  pending: "⏳",
+  processing: "🔄",
+  completed: "✅",
+  expired: "⌛",
+  failed: "❌",
+  refunded: "↩️",
+};
+
+function statusIcon(status: string): string {
+  return STATUS_ICON[status] ?? "•";
+}
+
 function rows(value: unknown): Row[] {
   return Array.isArray(value) ? (value as Row[]) : [];
 }
@@ -60,9 +73,9 @@ export function accountMessage(a: ToolResult): string | undefined {
   const agent = (a.agent as Row | undefined) ?? {};
   const scopes = Array.isArray(agent.scopes) ? (agent.scopes as string[]) : [];
   const permissions = scopes.length ? scopes.join(", ") : "no permissions";
-  const mode = a.mode === "live" ? "live" : "test";
+  const mode = a.mode === "live" ? "🟢 live mode" : "🧪 test mode";
 
-  return `You're connected to ${store.name ?? "your store"} in ${mode} mode. This agent's permissions: ${permissions}.`;
+  return `🏪 Connected to ${store.name ?? "your store"} (${mode}).\n🔑 Permissions: ${permissions}.`;
 }
 
 export function paymentMessage(p: ToolResult): string | undefined {
@@ -77,52 +90,52 @@ export function paymentMessage(p: ToolResult): string | undefined {
     const lines: string[] = [];
     lines.push(
       status === "processing"
-        ? `Payment${forAmount}${ref} has been sent and is confirming on-chain.`
-        : `Payment${forAmount}${ref} is ready and waiting to be paid.`,
+        ? `🔄 Payment${forAmount}${ref} has been sent and is confirming on-chain.`
+        : `⏳ Payment${forAmount}${ref} is ready and waiting to be paid.`,
     );
 
     const addresses = rows(p.deposit_addresses);
     if (addresses.length) {
       const a = addresses[0];
       lines.push("");
-      lines.push(`To pay, send ${a.crypto_amount} ${a.coin_symbol} on ${a.chain_symbol} to:`);
-      lines.push(`  ${a.address}`);
+      lines.push(`💸 Send ${a.crypto_amount} ${a.coin_symbol} on ${a.chain_symbol} to:`);
+      lines.push(`📍 ${a.address}`);
       if (addresses.length > 1) {
-        lines.push(`(${plural(addresses.length - 1, "other token")} can be used instead.)`);
+        lines.push(`🪙 ${plural(addresses.length - 1, "other token")} can be used instead.`);
       }
     }
-    if (p.hosted_url) lines.push(`Or send the customer to the checkout page: ${p.hosted_url}`);
+    if (p.hosted_url) lines.push(`🔗 Checkout page: ${p.hosted_url}`);
 
     const expires = relativeTime(p.expires_at);
-    if (expires) lines.push(`This payment expires ${expires}.`);
+    if (expires) lines.push(`⏰ Expires ${expires}.`);
 
     return lines.join("\n");
   }
 
   if (status === "completed") {
-    return `Payment${forAmount}${ref} is complete. The funds have been received.`;
+    return `✅ Payment${forAmount}${ref} is complete. The funds have been received.`;
   }
   if (status === "expired") {
-    return `Payment${ref} has expired and can no longer be paid. Create a new one if the customer still wants to pay.`;
+    return `⌛ Payment${ref} has expired and can no longer be paid. Create a new one if the customer still wants to pay.`;
   }
   if (status === "refunded") {
-    return `Payment${forAmount}${ref} has been refunded.`;
+    return `↩️ Payment${forAmount}${ref} has been refunded.`;
   }
   if (status === "failed") {
-    return `Payment${ref} did not go through and no funds were collected.`;
+    return `❌ Payment${ref} did not go through and no funds were collected.`;
   }
-  return `Payment${ref} is currently ${status || "in an unknown state"}.`;
+  return `${statusIcon(status)} Payment${ref} is currently ${status || "in an unknown state"}.`;
 }
 
 export function waitMessage(r: ToolResult): string | undefined {
   if (r.done) {
     const inner = paymentMessage((r.payment as ToolResult) ?? {});
-    return inner ?? `The payment is now ${r.status}.`;
+    return inner ?? `${statusIcon(String(r.status ?? ""))} The payment is now ${r.status}.`;
   }
   if (r.timed_out) {
     const checks = plural(Number(r.polls ?? 0), "time");
     return (
-      `The payment is still ${r.status}. I checked ${checks} but it hasn't completed yet. ` +
+      `⏳ The payment is still ${r.status}. I checked ${checks} but it hasn't completed yet. ` +
       `Call wait_for_payment again to keep waiting, or set up a Southpay webhook to be ` +
       `notified the moment it lands.`
     );
@@ -132,10 +145,10 @@ export function waitMessage(r: ToolResult): string | undefined {
 
 export function balanceMessage(b: ToolResult): string | undefined {
   const balances = rows(b.balances);
-  if (!balances.length) return "You don't have any crypto balances yet.";
+  if (!balances.length) return "💰 You don't have any crypto balances yet.";
 
   const held = joinList(balances.map((r) => `${r.balance} ${r.coin_symbol}`));
-  let message = `You're holding ${held}.`;
+  let message = `💰 You're holding ${held}.`;
 
   const settlement = b.settlement_balance as Row | undefined;
   if (settlement && settlement.amount != null) {
@@ -148,7 +161,7 @@ export function payoutLimitsMessage(l: ToolResult): string | undefined {
   const limits = rows(l.limits);
   if (!limits.length) {
     return (
-      "No payout spend limits are set up yet, so payouts are blocked by default " +
+      "🔒 No payout spend limits are set up yet, so payouts are blocked by default " +
       "(payout_controls_required) until you add a spend limit or a HumanOS mandate authorizes them."
     );
   }
@@ -160,7 +173,7 @@ export function payoutLimitsMessage(l: ToolResult): string | undefined {
     if (r.per_tx_cap != null) return `${r.coin_symbol}: up to ${r.per_tx_cap} per payout`;
     return `${r.coin_symbol}: no limit set`;
   });
-  return `Here's your remaining payout headroom. ${parts.join("; ")}.`;
+  return `📊 Remaining payout headroom. ${parts.join("; ")}.`;
 }
 
 export function payoutMessage(p: ToolResult): string | undefined {
@@ -168,7 +181,7 @@ export function payoutMessage(p: ToolResult): string | undefined {
 
   const id = p.id ? ` ${p.id}` : "";
   const status = p.status ?? "created";
-  return `Your payout${id} is ${status}.`;
+  return `📤 Your payout${id} is ${status}.`;
 }
 
 export function refundMessage(r: ToolResult): string | undefined {
@@ -176,42 +189,43 @@ export function refundMessage(r: ToolResult): string | undefined {
 
   const id = r.id ? ` ${r.id}` : "";
   const status = r.status ?? "created";
-  return `Your refund${id} is ${status}.`;
+  return `↩️ Your refund${id} is ${status}.`;
 }
 
 export function loginMessage(r: ToolResult): string | undefined {
   if (!r.logged_in) return undefined;
 
   const account = accountMessage((r.account as ToolResult) ?? {});
-  return account ? `You're logged in. ${account}` : "You're logged in.";
+  return account ? `✅ You're logged in.\n${account}` : "✅ You're logged in.";
 }
 
 export function listPaymentsMessage(r: ToolResult): string | undefined {
   const payments = rows(r.payments);
-  if (!payments.length) return "No payments found.";
+  if (!payments.length) return "🧾 No payments found.";
 
   const lines = payments.slice(0, 10).map((p) => {
     const amount = formatFiat(p.settlement_amount, p.settlement_currency) || "?";
-    return `  - ${p.reference ?? p.id}: ${amount}, ${p.status ?? "unknown"}`;
+    const status = String(p.status ?? "unknown");
+    return `${statusIcon(status)} ${p.reference ?? p.id}: ${amount}, ${status}`;
   });
   const more = payments.length > 10 ? `\n  (and ${payments.length - 10} more on this page)` : "";
 
-  return `${plural(payments.length, "payment")} on this page:\n${lines.join("\n")}${more}`;
+  return `🧾 ${plural(payments.length, "payment")} on this page:\n${lines.join("\n")}${more}`;
 }
 
 export function listPayoutsMessage(r: ToolResult): string | undefined {
   const data = rows(r.data);
-  if (!data.length) return "No payouts found.";
+  if (!data.length) return "📤 No payouts found.";
 
-  return `${plural(data.length, "payout")} on this page.`;
+  return `📤 ${plural(data.length, "payout")} on this page.`;
 }
 
 export function listRefundsMessage(r: ToolResult): string | undefined {
-  const data = rows(r.data);
   if (!("data" in r)) return undefined;
-  if (!data.length) return "No refunds have been issued on this payment.";
+  const data = rows(r.data);
+  if (!data.length) return "↩️ No refunds have been issued on this payment.";
 
-  return `${plural(data.length, "refund")} on this payment.`;
+  return `↩️ ${plural(data.length, "refund")} on this payment.`;
 }
 
 export function listTokensMessage(r: ToolResult): string | undefined {
@@ -223,13 +237,24 @@ export function listTokensMessage(r: ToolResult): string | undefined {
   const symbols = [...new Set(active.map((t) => String(t.coin_symbol)))];
 
   let message = symbols.length
-    ? `You currently accept ${joinList(symbols)}.`
-    : "You're not accepting any tokens yet.";
+    ? `🪙 You currently accept ${joinList(symbols)}.`
+    : "🪙 You're not accepting any tokens yet.";
   if (available.length) {
     message += ` ${plural(available.length, "more token")} can be enabled.`;
   }
   return message;
 }
+
+const ERROR_ICON: Record<string, string> = {
+  not_connected: "🔌",
+  invalid_key: "⚠️",
+  login_failed: "⚠️",
+  not_found: "🔍",
+  mandate_required: "🔒",
+  payout_controls_required: "🔒",
+  authorization_denied: "🔒",
+  insufficient_scope: "🔒",
+};
 
 const ERROR_HINTS: Record<string, string> = {
   not_connected:
@@ -253,13 +278,14 @@ const ERROR_HINTS: Record<string, string> = {
 
 export function errorMessage(result: ToolResult): string {
   const code = String(result.error ?? "error");
+  const icon = ERROR_ICON[code] ?? "⚠️";
   const detailValue = result.detail;
   const detail =
     detailValue == null
       ? ""
       : ` (${typeof detailValue === "string" ? detailValue : JSON.stringify(detailValue)})`;
 
-  if (ERROR_HINTS[code]) return ERROR_HINTS[code] + detail;
+  if (ERROR_HINTS[code]) return `${icon} ${ERROR_HINTS[code]}${detail}`;
 
   if (code === "southpay_api_error") {
     const body = result.detail as Row | string | undefined;
@@ -271,8 +297,8 @@ export function errorMessage(result: ToolResult): string {
       inner = body;
     }
     const status = result.status ? ` ${result.status}` : "";
-    return `Southpay couldn't complete that (API error${status}): ${inner}`;
+    return `⚠️ Southpay couldn't complete that (API error${status}): ${inner}`;
   }
 
-  return `That didn't work (${code})${detail}.`;
+  return `⚠️ That didn't work (${code})${detail}.`;
 }
