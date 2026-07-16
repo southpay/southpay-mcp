@@ -151,10 +151,17 @@ async function handleCallback(request: Request, env: OAuthEnv): Promise<Response
     );
   }
 
+  // The provider encodes userId into colon-delimited codes and KV keys, so it
+  // must not contain ":". The credential UUID is colon-free and stable across
+  // re-logins (rotation reuses the row), unlike agent_principal.
   const { redirectTo } = await env.OAUTH_PROVIDER.completeAuthorization({
     request: oauthReqInfo,
-    userId: String(mintBody.agent_principal ?? mintBody.id),
-    metadata: { store_id: tokenBody.store_id, mode: mintBody.mode },
+    userId: String(mintBody.id),
+    metadata: {
+      store_id: tokenBody.store_id,
+      mode: mintBody.mode,
+      agent_principal: mintBody.agent_principal,
+    },
     scope: oauthReqInfo.scope,
     props: { agentKey: mintBody.secret },
   });
