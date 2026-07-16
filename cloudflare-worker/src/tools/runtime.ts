@@ -11,7 +11,6 @@ export interface ToolHost {
   baseUrl(): string;
   sessionKey(): string | null;
   setSessionKey(key: string | null): void;
-  coingeckoApiKey(): string | undefined;
 }
 
 export const NOT_CONNECTED: ToolResult = {

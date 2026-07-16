@@ -13,7 +13,6 @@ import type { ToolHost } from "./tools/runtime";
 
 type Env = {
   SOUTHPAY_BASE_URL?: string;
-  COINGECKO_API_KEY?: string;
 };
 
 type State = {
@@ -42,10 +41,6 @@ export class SouthpayMCP extends McpAgent<Env, State, Props> implements ToolHost
 
   setSessionKey(key: string | null): void {
     this.setState({ apiKey: key });
-  }
-
-  coingeckoApiKey(): string | undefined {
-    return this.env.COINGECKO_API_KEY || undefined;
   }
 
   client(): SouthpayClient | null {
