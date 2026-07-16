@@ -37,13 +37,30 @@ Adding a tool means editing one focused module, not the orchestrator.
 
 ## Auth
 
-Send the agent key as a Bearer token on every request:
+Two ways in, checked in this order:
+
+**1. Browser login (OAuth).** Connect the MCP client with no token and it will
+run the OAuth flow: the Worker (via `@cloudflare/workers-oauth-provider`,
+grants in the `OAUTH_KV` namespace) serves metadata discovery, dynamic client
+registration, and its own token endpoint; `/authorize` forwards the user to
+the Southpay dashboard's consent page (`SOUTHPAY_DASHBOARD_URL`, first-party
+public client `spo_app_mcp`, PKCE); `/callback` exchanges the code and calls
+`POST /api/v2/oauth/agent_credentials` to mint a scoped `spa_` agent
+credential, which is stored in the grant and used for every API call of the
+session. Logging in again rotates the same credential (one per app + user +
+store + mode), so a fresh login invalidates keys from earlier logins.
+
+**2. Direct agent key.** Send it as a Bearer token on every request — this
+bypasses OAuth entirely:
 
 ```
 Authorization: Bearer spa_live_xxx
 ```
 
-The Worker reads the header and forwards the key to Southpay. Alternatively call the `login` tool to store the key in the session's Durable Object state for the duration of the session; `logout` clears it. Each tool resolves the key as: the login key, then the Bearer token. If neither is present it returns `{ "error": "not_connected" }`.
+The `login` tool still stores a pasted key in the session's Durable Object
+state; `logout` clears it. Each tool resolves the key as: the login key, then
+the session's agent key (OAuth grant or Bearer header). If none is present it
+returns `{ "error": "not_connected" }`.
 
 ## Develop
 

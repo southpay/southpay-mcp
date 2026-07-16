@@ -30,7 +30,14 @@
       "new_sqlite_classes": ["SouthpayMCP"],
     },
   ],
+  "kv_namespaces": [
+    {
+      "binding": "OAUTH_KV",
+      "id": "728c1931e1e24c6e84ee6a93487d76cb",
+    },
+  ],
   "vars": {
     "SOUTHPAY_BASE_URL": "https://api.southpay.io",
+    "SOUTHPAY_DASHBOARD_URL": "https://app.southpay.io",
   },
 }
