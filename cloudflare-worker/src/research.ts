@@ -37,7 +37,8 @@ export async function researchToken(symbolOrId: string, vsCurrency = "usd"): Pro
   let resp: Response;
   try {
     resp = await fetch(`${COINGECKO_PRICE_URL}?${params.toString()}`, {
-      headers: { Accept: "application/json" },
+      // CoinGecko rejects requests without a User-Agent with a 403.
+      headers: { Accept: "application/json", "User-Agent": "southpay-mcp/1.0" },
     });
   } catch (err) {
     return {
