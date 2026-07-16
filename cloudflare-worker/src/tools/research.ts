@@ -56,7 +56,7 @@ export function registerResearchTools(host: ToolHost) {
       },
     },
     async ({ symbol_or_id, vs_currency }) => {
-      return ok(await researchToken(symbol_or_id, vs_currency));
+      return ok(await researchToken(symbol_or_id, vs_currency, host.coingeckoApiKey()));
     },
   );
 }

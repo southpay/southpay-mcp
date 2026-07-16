@@ -21,7 +21,11 @@ const SYMBOL_TO_ID: Record<string, string> = {
 
 type Json = Record<string, unknown>;
 
-export async function researchToken(symbolOrId: string, vsCurrency = "usd"): Promise<Json> {
+export async function researchToken(
+  symbolOrId: string,
+  vsCurrency = "usd",
+  apiKey?: string,
+): Promise<Json> {
   const key = symbolOrId.trim().toLowerCase();
   const coinId = SYMBOL_TO_ID[key] ?? key;
   const vs = vsCurrency.trim().toLowerCase();
@@ -34,12 +38,18 @@ export async function researchToken(symbolOrId: string, vsCurrency = "usd"): Pro
     include_24hr_change: "true",
   });
 
+  // CoinGecko rejects requests without a User-Agent with a 403. Keyless
+  // requests are also rate-limited per source IP, and Workers egress IPs are
+  // shared, so a (free) demo API key makes the limit key-scoped instead.
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "User-Agent": "southpay-mcp/1.0",
+  };
+  if (apiKey) headers["x-cg-demo-api-key"] = apiKey;
+
   let resp: Response;
   try {
-    resp = await fetch(`${COINGECKO_PRICE_URL}?${params.toString()}`, {
-      // CoinGecko rejects requests without a User-Agent with a 403.
-      headers: { Accept: "application/json", "User-Agent": "southpay-mcp/1.0" },
-    });
+    resp = await fetch(`${COINGECKO_PRICE_URL}?${params.toString()}`, { headers });
   } catch (err) {
     return {
       error: "market_data_unreachable",
@@ -49,7 +59,17 @@ export async function researchToken(symbolOrId: string, vsCurrency = "usd"): Pro
 
   if (resp.status !== 200) {
     const text = await resp.text();
-    return { error: "market_data_error", status: resp.status, detail: text.slice(0, 300) };
+    const result: Json = {
+      error: "market_data_error",
+      status: resp.status,
+      detail: text.slice(0, 300),
+    };
+    if (resp.status === 429 && !apiKey) {
+      result.hint =
+        "CoinGecko rate-limits keyless requests per source IP, which Workers share. " +
+        "Set a free demo key: wrangler secret put COINGECKO_API_KEY";
+    }
+    return result;
   }
 
   const data = (await resp.json()) as Record<string, Json>;

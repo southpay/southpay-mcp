@@ -67,6 +67,15 @@ npx wrangler deploy
 
 The base URL defaults to `https://api.southpay.io` and is overridable via the `SOUTHPAY_BASE_URL` var in `wrangler.jsonc`.
 
+`research_token` works keyless, but CoinGecko rate-limits keyless requests per
+source IP and Workers egress IPs are shared, so keyless calls often hit 429s in
+production. Set a free [CoinGecko demo API key](https://www.coingecko.com/en/api/pricing)
+to make the limit key-scoped:
+
+```bash
+npx wrangler secret put COINGECKO_API_KEY
+```
+
 ## Client config
 
 Point an MCP client at the deployed Worker and attach the agent key as a Bearer token:
