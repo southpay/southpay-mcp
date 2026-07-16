@@ -82,6 +82,9 @@ async function handleAuthorize(request: Request, env: OAuthEnv): Promise<Respons
   authorizeUrl.searchParams.set("code_challenge", await pkceChallenge(verifier));
   authorizeUrl.searchParams.set("code_challenge_method", "S256");
   authorizeUrl.searchParams.set("state", nonce);
+  // Skip first-party auto-approve: the consent screen is where the user picks
+  // the store and live/test mode for the session.
+  authorizeUrl.searchParams.set("prompt", "consent");
 
   return Response.redirect(authorizeUrl.toString(), 302);
 }
