@@ -29,14 +29,21 @@ export function registerPaymentTools(host: ToolHost) {
           .string()
           .optional()
           .describe("Optional merchant order identifier to attach to the payment."),
+        metadata: z
+          .record(z.string(), z.string())
+          .optional()
+          .describe(
+            "Optional key-value metadata to attach to the payment, e.g. the payer name. " +
+              "Up to 50 keys; values must be strings. Shown on the merchant dashboard.",
+          ),
       },
     },
-    async ({ amount, currency, order_id }) => {
+    async ({ amount, currency, order_id, metadata }) => {
       const client = host.client();
       if (!client) return ok(NOT_CONNECTED);
 
       return ok(
-        await asData(() => client.createPayment(amount, currency, order_id)),
+        await asData(() => client.createPayment(amount, currency, order_id, metadata)),
         paymentMessage,
       );
     },

@@ -84,13 +84,21 @@ export class SouthpayClient {
     return this.parse(resp, 200);
   }
 
-  async createPayment(amount: string, currency = "USD", orderId?: string): Promise<Json> {
+  async createPayment(
+    amount: string,
+    currency = "USD",
+    orderId?: string,
+    metadata?: Record<string, string>,
+  ): Promise<Json> {
     const paymentIntent: Json = {
       amount: String(amount),
       currency: currency.toUpperCase(),
     };
     if (orderId) {
       paymentIntent.order_id = orderId;
+    }
+    if (metadata && Object.keys(metadata).length > 0) {
+      paymentIntent.metadata = metadata;
     }
     const resp = await fetch(`${this.baseUrl}${PAYMENTS_PATH}`, {
       method: "POST",
